@@ -1,4 +1,5 @@
 export type {
+  AutoCopilotDetails,
   CopilotSuggestion,
 } from "@/lib/schema";
 

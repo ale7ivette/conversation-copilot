@@ -1,6 +1,9 @@
 /** Room for one–two natural sentences per speakable field (JSON still compact). */
 export const COPILOT_MAX_COMPLETION_TOKENS = 400;
 
+/** Auto-detect mode returns more fields (options, moves, detection metadata). */
+export const COPILOT_MAX_COMPLETION_TOKENS_AUTO = 1200;
+
 /**
  * Minimum gap between **any** copilot suggestion API calls (ms), including
  * `direct_question` and `pause`. Keeps suggestions from flipping every second.

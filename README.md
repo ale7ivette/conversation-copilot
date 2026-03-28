@@ -20,6 +20,8 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+**Microphone:** Browsers only expose the mic on a **secure context** — use `http://localhost` or `https://`. Opening the dev server via `http://192.168.x.x` (the “Network” URL) will **not** work for the microphone until you use HTTPS or a tunnel.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

@@ -141,6 +141,7 @@ export function AudioCaptureSettingsPanel({
   const [displayGain, setDisplayGain] = useState(DEFAULT_DISPLAY_GAIN);
   const [noiseReduction, setNoiseReduction] =
     useState<NoiseReductionMode>("near_field");
+  const [micApiBlocked, setMicApiBlocked] = useState(false);
 
   useEffect(() => {
     setDeviceId(loadDeviceId());
@@ -165,6 +166,14 @@ export function AudioCaptureSettingsPanel({
   }, []);
 
   useEffect(() => {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.enumerateDevices
+    ) {
+      setMicApiBlocked(true);
+      return;
+    }
+    setMicApiBlocked(false);
     let cancelled = false;
     async function list() {
       try {
@@ -194,12 +203,25 @@ export function AudioCaptureSettingsPanel({
         use loopback devices, or an external mic. Higher gain increases noise.
       </p>
 
+      {micApiBlocked ? (
+        <p
+          className="mb-3 rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-[0.65rem] leading-relaxed text-amber-100/90"
+          role="alert"
+        >
+          Microphone APIs are not available on this URL. Open the app at{" "}
+          <strong className="text-amber-50">http://localhost</strong> (or{" "}
+          <strong className="text-amber-50">https://</strong>), not{" "}
+          <strong className="text-amber-50">http://</strong> plus your computer&apos;s LAN/Wi‑Fi
+          address. Device list and live listening need a secure browser context.
+        </p>
+      ) : null}
+
       <label className="block">
         <span className="mb-1 block text-[0.65rem] uppercase tracking-[0.1em] text-white/35">
           Microphone / input
         </span>
         <select
-          disabled={disabled}
+          disabled={disabled || micApiBlocked}
           value={deviceId}
           onChange={(e) => {
             const v = e.target.value;

@@ -8,6 +8,8 @@ export type TranscriptCue = {
   text: string;
   /** Raw diarization speaker id when using gpt-4o-transcribe-diarize. */
   diarizationLabel?: string;
+  /** Normalized ~0–1 RMS on local mic path when segment committed (best-effort). */
+  micRms01?: number;
 };
 
 export type RealtimeMicHandlers = {
@@ -82,6 +84,19 @@ function pcm16ToBase64(pcm: Int16Array): string {
   return btoa(binary);
 }
 
+/** Mic APIs exist only in a secure context (https, localhost, 127.0.0.1 — not http://LAN-IP). */
+function assertBrowserMicAvailable(): void {
+  if (typeof navigator === "undefined") {
+    throw new Error("Microphone access requires a browser environment.");
+  }
+  const md = navigator.mediaDevices;
+  if (!md?.getUserMedia) {
+    throw new Error(
+      "Microphone is unavailable on this URL. Use http://localhost or https:// (not http:// plus your Wi‑Fi/LAN IP). For phones or other devices on your network, use HTTPS or deploy the app to a host with TLS."
+    );
+  }
+}
+
 /**
  * Browser mic (optional display-audio mix) → OpenAI Realtime WebSocket (PCM 24 kHz)
  * → transcription events (diarized segments or full line on completed).
@@ -133,6 +148,7 @@ export async function startRealtimeMicSession(
       handlers.onTranscriptCue({
         text,
         diarizationLabel: ev.speaker?.trim() || undefined,
+        micRms01: sampleMicRms01(),
       });
     }
   );
@@ -146,7 +162,8 @@ export async function startRealtimeMicSession(
       return;
     }
     const t = ev.transcript?.trim();
-    if (t) handlers.onTranscriptCue({ text: t });
+    if (t)
+      handlers.onTranscriptCue({ text: t, micRms01: sampleMicRms01() });
   });
 
   rt.on("error", (err) => {
@@ -178,13 +195,15 @@ export async function startRealtimeMicSession(
   }
   onDebug("session.created — opening audio capture");
 
+  assertBrowserMicAvailable();
+
   const micConstraints: MediaTrackConstraints | boolean = options.audioDeviceId
     ? { deviceId: { exact: options.audioDeviceId } }
     : true;
 
   let micStream: MediaStream;
   try {
-    micStream = await navigator.mediaDevices.getUserMedia({
+    micStream = await navigator.mediaDevices!.getUserMedia({
       audio: micConstraints,
     });
   } catch (e) {
@@ -195,7 +214,7 @@ export async function startRealtimeMicSession(
   let displayStream: MediaStream | null = null;
   if (options.mixDisplayAudio) {
     try {
-      displayStream = await navigator.mediaDevices.getDisplayMedia({
+      displayStream = await navigator.mediaDevices!.getDisplayMedia({
         video: true,
         audio: true,
       });
@@ -222,6 +241,21 @@ export async function startRealtimeMicSession(
   const micSource = audioContext.createMediaStreamSource(micStream);
   micSource.connect(micGain);
   micGain.connect(processor);
+
+  const micAnalyser = audioContext.createAnalyser();
+  micAnalyser.fftSize = 512;
+  micGain.connect(micAnalyser);
+  const rmsScratch = new Float32Array(micAnalyser.fftSize);
+  function sampleMicRms01(): number {
+    micAnalyser.getFloatTimeDomainData(rmsScratch);
+    let s = 0;
+    for (let i = 0; i < rmsScratch.length; i++) {
+      const x = rmsScratch[i];
+      s += x * x;
+    }
+    const rms = Math.sqrt(s / rmsScratch.length);
+    return Math.min(1, rms * 2.8);
+  }
 
   let dispGain: GainNode | null = null;
   let dispSource: MediaStreamAudioSourceNode | null = null;
@@ -260,6 +294,7 @@ export async function startRealtimeMicSession(
     handlers.onPartialTranscript?.("");
     processor.disconnect();
     mute.disconnect();
+    micAnalyser.disconnect();
     micGain.disconnect();
     micSource.disconnect();
     if (dispSource) dispSource.disconnect();

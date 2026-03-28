@@ -1,4 +1,5 @@
 export const COPILOT_SCENARIOS = [
+  "auto",
   "sales_call",
   "negotiation",
   "investor",
@@ -10,6 +11,7 @@ export type CopilotScenario = (typeof COPILOT_SCENARIOS)[number];
 const STORAGE_KEY = "copilot-session-scenario";
 
 export const SCENARIO_LABELS: Record<CopilotScenario, string> = {
+  auto: "Auto-detect",
   sales_call: "Sales call",
   negotiation: "Negotiation",
   investor: "Investor",
@@ -17,12 +19,12 @@ export const SCENARIO_LABELS: Record<CopilotScenario, string> = {
 };
 
 export function loadPersistedScenario(): CopilotScenario {
-  if (typeof window === "undefined") return "sales_call";
+  if (typeof window === "undefined") return "auto";
   const v = localStorage.getItem(STORAGE_KEY)?.trim();
   if (v && (COPILOT_SCENARIOS as readonly string[]).includes(v)) {
     return v as CopilotScenario;
   }
-  return "sales_call";
+  return "auto";
 }
 
 export function savePersistedScenario(s: CopilotScenario) {

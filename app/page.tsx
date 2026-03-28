@@ -29,6 +29,8 @@ import {
   detectLineTrigger,
   type TriggerReason,
 } from "@/lib/trigger-engine";
+import { buildSpeakerMapSummary } from "@/lib/client-hints";
+import { MicActivityTracker } from "@/lib/mic-activity-tracker";
 import { canRequestSuggestion } from "@/lib/suggestion-cooldown";
 import type { TranscriptLine } from "@/lib/transcript-buffer";
 import { TranscriptBuffer } from "@/lib/transcript-buffer";
@@ -71,8 +73,13 @@ export default function HomePage() {
   const suggestionInFlightRef = useRef(false);
   const [suggestionInFlight, setSuggestionInFlight] = useState(false);
   const stopMicRef = useRef<(() => Promise<void>) | null>(null);
+  const micActivityTrackerRef = useRef(new MicActivityTracker());
+  const prevAutoRef = useRef<{
+    type: string;
+    voice: string;
+  } | null>(null);
 
-  const [scenario, setScenario] = useState<CopilotScenario>("sales_call");
+  const [scenario, setScenario] = useState<CopilotScenario>("auto");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [transcriptFullOpen, setTranscriptFullOpen] = useState(false);
   const [endSessionOpen, setEndSessionOpen] = useState(false);
@@ -81,10 +88,44 @@ export default function HomePage() {
     null
   );
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [autoShiftNote, setAutoShiftNote] = useState<string | null>(null);
 
   useEffect(() => {
     setScenario(loadPersistedScenario());
   }, []);
+
+  useEffect(() => {
+    if (scenario !== "auto") prevAutoRef.current = null;
+  }, [scenario]);
+
+  useEffect(() => {
+    if (scenario !== "auto" || !suggestion?.autoDetails) {
+      setAutoShiftNote(null);
+      return;
+    }
+    const d = suggestion.autoDetails;
+    const prev = prevAutoRef.current;
+    if (!prev) {
+      prevAutoRef.current = {
+        type: d.detected_conversation_type,
+        voice: d.primary_voice,
+      };
+      return;
+    }
+    const typeChanged = prev.type !== d.detected_conversation_type;
+    const voiceChanged = prev.voice !== d.primary_voice;
+    prevAutoRef.current = {
+      type: d.detected_conversation_type,
+      voice: d.primary_voice,
+    };
+    if (!typeChanged && !voiceChanged) return;
+    const parts: string[] = [];
+    if (typeChanged) parts.push(`Now: ${d.detected_conversation_type}`);
+    if (voiceChanged) parts.push(`Primary: ${d.primary_voice}`);
+    setAutoShiftNote(parts.join(" · "));
+    const t = window.setTimeout(() => setAutoShiftNote(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [suggestion, scenario]);
 
   useEffect(() => {
     if (sessionStartedAt == null) return;
@@ -115,6 +156,26 @@ export default function HomePage() {
     setTranscriptLines([...transcriptBufferRef.current.getAll()]);
   }, []);
 
+  const buildAutoClientHints = useCallback(() => {
+    const latest = transcriptBufferRef.current.getLatestLine();
+    const guess = micActivityTrackerRef.current.getMicPrimaryGuess();
+    const lastMeta = micActivityTrackerRef.current.getLastCueMeta();
+    return {
+      speakerMapSummary: buildSpeakerMapSummary(speakerMapRef.current),
+      lastCompletedLineLabel: latest?.diarizationLabel,
+      lastCompletedLineRole:
+        latest?.speaker === "unknown" ? undefined : latest?.speaker,
+      micPrimaryGuess: guess,
+      lastCueMeta: lastMeta
+        ? {
+            diarizationLabel: lastMeta.diarizationLabel,
+            committedAtMs: lastMeta.committedAtMs,
+            micRms01: lastMeta.micRms01,
+          }
+        : undefined,
+    };
+  }, []);
+
   const fireCopilotSuggestion = useCallback(
     async (
       reason: Exclude<TriggerReason, "none">,
@@ -135,6 +196,9 @@ export default function HomePage() {
           transcript,
           trigger: reason,
           scenario,
+          ...(scenario === "auto"
+            ? { clientHints: buildAutoClientHints() }
+            : {}),
         });
         setSuggestion(result);
         setLastSuggestionTrigger(reason);
@@ -148,7 +212,7 @@ export default function HomePage() {
         setSuggestionInFlight(false);
       }
     },
-    [scenario]
+    [scenario, buildAutoClientHints]
   );
 
   const handleSpeakerMapChange = useCallback(
@@ -190,11 +254,21 @@ export default function HomePage() {
   }, [fullTranscript, fireCopilotSuggestion]);
 
   const handleTranscriptCue = useCallback(
-    async (cue: { text: string; diarizationLabel?: string }) => {
+    async (cue: {
+      text: string;
+      diarizationLabel?: string;
+      micRms01?: number;
+    }) => {
       const text = cue.text.trim();
       if (!text) return;
 
       pushTranscriptCue(text, cue.diarizationLabel);
+      const committedAt = Date.now();
+      micActivityTrackerRef.current.recordCue({
+        diarizationLabel: cue.diarizationLabel,
+        micRms01: cue.micRms01,
+        committedAtMs: committedAt,
+      });
 
       const reason = detectLineTrigger(text);
       setLastLineTrigger(reason);
@@ -230,6 +304,8 @@ export default function HomePage() {
     }
 
     setBannerError(null);
+    micActivityTrackerRef.current.reset();
+    prevAutoRef.current = null;
     triggerDeduperRef.current.reset();
     lastSuggestionAtRef.current = null;
     setLastSuggestionAt(null);
@@ -284,6 +360,8 @@ export default function HomePage() {
       stopMicRef.current = null;
     }
     setLiveTranscriptHint("");
+    micActivityTrackerRef.current.reset();
+    prevAutoRef.current = null;
     triggerDeduperRef.current.reset();
     setIsListening(false);
     setTokenState("idle");
@@ -379,6 +457,8 @@ export default function HomePage() {
                 suggestion={suggestion}
                 lastSuggestionTrigger={lastSuggestionTrigger}
                 suggestionInFlight={suggestionInFlight}
+                scenario={scenario}
+                autoShiftNote={autoShiftNote}
                 className="min-h-0"
               />
               <button

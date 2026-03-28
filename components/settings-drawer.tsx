@@ -112,7 +112,9 @@ export function SettingsDrawer({
           <p className="text-[0.65rem] leading-relaxed text-[var(--copilot-muted)]">
             Conversation type at the top only steers how suggestions are phrased.
             It does not change microphone or audio capture — those are separate
-            below.
+            below. In Auto-detect, mic level vs diarization labels is a best-effort
+            hint for who is you; it works best with a local mic, not mixed remote
+            audio alone.
           </p>
 
           {audioCaptureLocked ? (

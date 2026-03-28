@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CopilotScenario } from "@/lib/copilot-scenario";
 import type { CopilotSuggestion } from "@/types/copilot";
 import type { TriggerReason } from "@/lib/trigger-engine";
 import { triggerInsightLabel } from "@/lib/trigger-insight-copy";
@@ -9,12 +10,15 @@ type SuggestionPanelProps = {
   suggestion: CopilotSuggestion | null;
   lastSuggestionTrigger: TriggerReason | null;
   suggestionInFlight: boolean;
+  scenario: CopilotScenario;
+  autoShiftNote?: string | null;
   className?: string;
 };
 
 function suggestionKey(s: CopilotSuggestion | null): string {
   if (!s) return "empty";
-  return `${s.next_question}\0${s.suggested_reply}`;
+  const ad = s.autoDetails;
+  return `${s.next_question}\0${s.suggested_reply}\0${ad?.detected_conversation_type ?? ""}\0${ad?.primary_voice ?? ""}`;
 }
 
 function primaryBlock(
@@ -30,10 +34,34 @@ function primaryBlock(
   return "ask";
 }
 
+function ListBlock({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-1.5 text-[0.65rem] font-medium uppercase tracking-[0.1em] text-[var(--copilot-muted)]">
+        {title}
+      </p>
+      <ul className="list-inside list-disc space-y-1.5 text-[13px] leading-relaxed text-[var(--copilot-fg-secondary)]">
+        {items.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function SuggestionPanel({
   suggestion,
   lastSuggestionTrigger,
   suggestionInFlight,
+  scenario,
+  autoShiftNote = null,
   className = "",
 }: SuggestionPanelProps) {
   const incomingKey = suggestionKey(suggestion);
@@ -71,13 +99,28 @@ export function SuggestionPanel({
     ? primaryBlock(shownSuggestion, lastSuggestionTrigger)
     : "ask";
 
-  const insight =
+  const triggerInsight =
     lastSuggestionTrigger && lastSuggestionTrigger !== "none"
       ? triggerInsightLabel(lastSuggestionTrigger)
       : null;
 
+  const ad = shownSuggestion?.autoDetails;
+  const autoInsight =
+    scenario === "auto" && ad
+      ? `${ad.detected_conversation_type} · ${ad.primary_voice}`
+      : null;
+
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${className}`}>
+      {autoShiftNote ? (
+        <p
+          className="mb-2 rounded-lg border border-[var(--copilot-accent)]/30 bg-[var(--copilot-accent-muted)] px-3 py-2 text-center text-[11px] font-medium text-[var(--copilot-accent)]"
+          role="status"
+        >
+          {autoShiftNote}
+        </p>
+      ) : null}
+
       <section
         className="flex min-h-[280px] flex-1 flex-col rounded-2xl border border-[var(--copilot-border)] bg-[var(--copilot-surface-elevated)] p-6 shadow-sm"
         style={{
@@ -126,12 +169,58 @@ export function SuggestionPanel({
         )}
       </section>
 
-      {insight ? (
+      {triggerInsight ? (
         <div className="mt-3 shrink-0">
           <span className="inline-block rounded-full bg-[var(--copilot-accent-muted)] px-3 py-1.5 text-[12px] font-medium text-[var(--copilot-accent)]">
-            {insight}
+            {triggerInsight}
           </span>
         </div>
+      ) : null}
+
+      {autoInsight ? (
+        <div className={triggerInsight ? "mt-2 shrink-0" : "mt-3 shrink-0"}>
+          <span className="inline-block rounded-full border border-[var(--copilot-border)] bg-[var(--copilot-surface-2)] px-3 py-1.5 text-[11px] font-medium text-[var(--copilot-fg-secondary)]">
+            {autoInsight}
+          </span>
+        </div>
+      ) : null}
+
+      {ad ? (
+        <details className="group mt-3 shrink-0 rounded-xl border border-[var(--copilot-border)] bg-[var(--copilot-surface-2)] px-3 py-2">
+          <summary className="cursor-pointer list-none text-[12px] font-medium text-[var(--copilot-fg-secondary)] marker:hidden [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="text-[var(--copilot-muted)] transition-transform group-open:rotate-90"
+                aria-hidden
+              >
+                ▸
+              </span>
+              Context (auto-detect)
+            </span>
+          </summary>
+          <div className="mt-3 space-y-3 border-t border-[var(--copilot-border)] pt-3 text-[12px] text-[var(--copilot-fg-secondary)]">
+            <p>
+              <span className="text-[var(--copilot-muted)]">Type confidence </span>
+              {Math.round(ad.confidence_conversation_type * 100)}%
+              <span className="text-[var(--copilot-muted)]"> · Voice confidence </span>
+              {Math.round(ad.confidence_primary_voice * 100)}%
+            </p>
+            <p className="text-[var(--copilot-muted)] leading-relaxed">
+              {ad.rationale_one_line}
+            </p>
+            <ListBlock title="More ways to say" items={ad.say_options} />
+            <ListBlock title="Questions to ask" items={ad.smart_questions} />
+            <ListBlock title="Key moves" items={ad.key_moves} />
+            {ad.clarifying_question.trim() ? (
+              <p>
+                <span className="font-medium text-[var(--copilot-fg)]">
+                  Clarifying question for you:{" "}
+                </span>
+                {ad.clarifying_question}
+              </p>
+            ) : null}
+          </div>
+        </details>
       ) : null}
 
       {suggestionInFlight ? (

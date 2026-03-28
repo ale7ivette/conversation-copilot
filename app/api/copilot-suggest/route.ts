@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { ClientHintsSchema } from "@/lib/client-hints";
 import { COPILOT_SCENARIOS } from "@/lib/copilot-scenario";
 import { generateCopilotSuggestion } from "@/lib/copilot-suggestion";
 
@@ -7,6 +8,7 @@ const RequestBodySchema = z.object({
   transcript: z.string(),
   trigger: z.string(),
   scenario: z.enum(COPILOT_SCENARIOS).optional(),
+  clientHints: ClientHintsSchema,
 });
 
 export async function POST(req: NextRequest) {
@@ -40,8 +42,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(suggestion);
   } catch (err) {
     console.error("copilot-suggest", err);
+    const detail =
+      err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to generate suggestion" },
+      { error: "Failed to generate suggestion", detail },
       { status: 502 }
     );
   }
