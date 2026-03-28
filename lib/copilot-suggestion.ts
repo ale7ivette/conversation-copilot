@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { CopilotScenario } from "@/lib/copilot-scenario";
 import { COPILOT_MAX_COMPLETION_TOKENS } from "./copilot-settings";
 import { buildCopilotNegotiationPrompt } from "./copilot-prompt";
 import { CopilotSuggestionSchema } from "./schema";
@@ -47,10 +48,15 @@ const COPILOT_JSON_SCHEMA = {
 export async function generateCopilotSuggestion(input: {
   transcript: string;
   trigger: string;
+  scenario?: CopilotScenario;
 }) {
-  const { transcript, trigger } = input;
+  const { transcript, trigger, scenario } = input;
 
-  const userContent = buildCopilotNegotiationPrompt(trigger, transcript);
+  const userContent = buildCopilotNegotiationPrompt(
+    trigger,
+    transcript,
+    scenario
+  );
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",

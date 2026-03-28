@@ -1,8 +1,12 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Conversation Copilot
+
+Real-time mic transcription with AI suggestions for live conversations. Configure `OPENAI_API_KEY` in `.env.local` (see `.env.example`).
+
+Developer testing presets appear in development, or set `NEXT_PUBLIC_COPILOT_DEV_TOOLS=true` to enable them in production builds.
 
 ## Getting Started
 
-First, run the development server:
+Run the development server:
 
 ```bash
 npm run dev

@@ -289,7 +289,8 @@ export function AudioCaptureSettingsPanel({
           <option value="far_field">Room / laptop mic (far-field)</option>
         </select>
         <span className="mt-1 block text-[0.65rem] leading-relaxed text-white/35">
-          Applies on next <strong className="text-white/50">Start listening</strong> (new session).
+          Applies on next <strong className="text-white/50">Start listening</strong> (new
+          session). Independent of conversation type.
         </span>
       </label>
 

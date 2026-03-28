@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SUGGESTION_COOLDOWN_MS } from "@/lib/copilot-settings";
+import { SUGGESTION_MIN_INTERVAL_MS } from "@/lib/copilot-settings";
 import { DEFAULT_PAUSE_MS } from "@/lib/trigger-engine";
 
 const PRESETS: { label: string; text: string; expect: string }[] = [
@@ -31,9 +31,9 @@ const PRESETS: { label: string; text: string; expect: string }[] = [
     expect: "price_budget_scope",
   },
   {
-    label: "General line",
+    label: "Plain line",
     text: "Yeah I was thinking we could sync tomorrow morning",
-    expect: "general_line",
+    expect: "none",
   },
 ];
 
@@ -64,7 +64,7 @@ export function CopilotTestPanel({
     lastSuggestionAt != null ? now - lastSuggestionAt : null;
   const cooldownRemaining =
     msSinceSuggestion != null
-      ? Math.max(0, SUGGESTION_COOLDOWN_MS - msSinceSuggestion)
+      ? Math.max(0, SUGGESTION_MIN_INTERVAL_MS - msSinceSuggestion)
       : 0;
   const onCooldown = cooldownRemaining > 0;
 
@@ -161,7 +161,7 @@ export function CopilotTestPanel({
                 <span className="text-amber-200/90">
                   {(cooldownRemaining / 1000).toFixed(1)}s
                 </span>{" "}
-                <span className="text-white/40">(bypass: direct_question)</span>
+                <span className="text-white/40">(all triggers)</span>
               </>
             ) : (
               <span className="text-emerald-400/90">Ready</span>

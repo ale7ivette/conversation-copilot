@@ -6,13 +6,16 @@
  * 2. price_budget_scope — price, budget, scope, timeline, approval, concern
  * 3. objection — objection / risk phrases (longest phrase matched first)
  * 4. thought_finished — sentence ends with . ! or … (not a question)
- * 5. general_line — substantive line that matched none of the above (min length)
+ *
+ * Short lines that match none of the above return `none` (no `general_line`;
+ * avoids suggestion spam from diarized micro-segments).
  *
  * Pause is only emitted from the silence timer (see DEFAULT_PAUSE_MS), not from text alone.
  */
 
-/** Minimum trimmed length for `general_line` when no higher-priority trigger matches. */
-export const GENERAL_LINE_MIN_CHARS = 12;
+import { PAUSE_TRIGGER_MS } from "./copilot-settings";
+
+export const DEFAULT_PAUSE_MS = PAUSE_TRIGGER_MS;
 
 export const TRIGGER_REASONS = [
   "thought_finished",
@@ -20,7 +23,6 @@ export const TRIGGER_REASONS = [
   "pause",
   "direct_question",
   "objection",
-  "general_line",
   "none",
 ] as const;
 
@@ -55,8 +57,6 @@ const OBJECTION_PHRASES: readonly string[] = [
   "won't",
   "later",
 ];
-
-export const DEFAULT_PAUSE_MS = 1400;
 
 function normalizeTranscript(text: string): string {
   return text
@@ -101,10 +101,6 @@ export function detectLineTrigger(latestLine: string): TriggerReason {
   if (matchesObjection(normalized)) return "objection";
   if (isThoughtFinished(latestLine)) return "thought_finished";
 
-  if (latestLine.trim().length >= GENERAL_LINE_MIN_CHARS) {
-    return "general_line";
-  }
-
   return "none";
 }
 
@@ -134,7 +130,7 @@ export class TriggerDeduper {
     return true;
   }
 
-  reset(): void {
+  reset() {
     this.history = [];
   }
 }

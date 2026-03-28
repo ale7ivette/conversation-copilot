@@ -3,6 +3,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Copilot app (used on home) */
+  --copilot-bg: #0c0e14;
+  --copilot-surface: #12151e;
+  --copilot-surface-elevated: #181c28;
+  --copilot-surface-2: rgba(255, 255, 255, 0.04);
+  --copilot-border: rgba(255, 255, 255, 0.08);
+  --copilot-fg: rgba(255, 255, 255, 0.94);
+  --copilot-fg-secondary: rgba(255, 255, 255, 0.78);
+  --copilot-muted: rgba(255, 255, 255, 0.42);
+  --copilot-accent: #c9a227;
+  --copilot-accent-muted: rgba(201, 162, 39, 0.18);
+  --copilot-suggestion-fade-ms: 200ms;
 }
 
 @theme inline {
@@ -19,8 +31,36 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --copilot-suggestion-fade-ms: 0ms;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+@keyframes copilot-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+
+.copilot-live-dot {
+  animation: copilot-pulse-dot 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copilot-live-dot {
+    animation: none;
+  }
 }

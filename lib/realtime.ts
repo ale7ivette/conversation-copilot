@@ -1,4 +1,5 @@
 import type { ClientSecretCreateResponse } from "openai/resources/realtime/client-secrets";
+import type { CopilotScenario } from "@/lib/copilot-scenario";
 import { CopilotSuggestionSchema, type CopilotSuggestion } from "./schema";
 import { COPILOT_SYSTEM_PROMPT } from "./prompt";
 
@@ -33,6 +34,7 @@ export async function getRealtimeToken(options?: {
 export async function requestCopilotSuggestion(args: {
   transcript: string;
   trigger: string;
+  scenario?: CopilotScenario;
 }): Promise<CopilotSuggestion> {
   const res = await fetch("/api/copilot-suggest", {
     method: "POST",

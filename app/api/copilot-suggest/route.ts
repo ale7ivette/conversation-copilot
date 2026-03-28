@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { COPILOT_SCENARIOS } from "@/lib/copilot-scenario";
 import { generateCopilotSuggestion } from "@/lib/copilot-suggestion";
 
 const RequestBodySchema = z.object({
   transcript: z.string(),
   trigger: z.string(),
+  scenario: z.enum(COPILOT_SCENARIOS).optional(),
 });
 
 export async function POST(req: NextRequest) {

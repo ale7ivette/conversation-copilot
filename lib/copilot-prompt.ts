@@ -1,14 +1,36 @@
+import type { CopilotScenario } from "@/lib/copilot-scenario";
+import { SCENARIO_LABELS } from "@/lib/copilot-scenario";
+
+function scenarioToneParagraph(scenario: CopilotScenario | undefined): string {
+  if (!scenario) return "";
+  const label = SCENARIO_LABELS[scenario];
+  const lines: Record<CopilotScenario, string> = {
+    sales_call:
+      "Session type: sales call. Favor discovery, qualification, and clear next steps. Sound credible and helpful, not pushy.",
+    negotiation:
+      "Session type: negotiation. Protect interests while finding workable trade space; be precise on terms and tradeoffs.",
+    investor:
+      "Session type: investor conversation. Be concise, evidence-grounded, and honest about risks and milestones.",
+    meeting:
+      "Session type: general meeting. Stay collaborative, action-oriented, and respectful of everyone's time.",
+  };
+  return [`Context: ${label}.`, lines[scenario], ""].join("\n");
+}
+
 /**
  * User-message builder for live copilot suggestions.
  * Pairs with structured JSON schema; stresses verbatim, speakable, expert tone.
  */
 export function buildCopilotNegotiationPrompt(
   trigger: string,
-  transcript: string
+  transcript: string,
+  scenario?: CopilotScenario
 ): string {
   const body = transcript.trim();
+  const scenarioBlock = scenarioToneParagraph(scenario);
   return [
     "You help the user in live professional conversations. Output a single JSON object only—no markdown, no code fences, no text before or after the JSON.",
+    scenarioBlock,
     "",
     "Below is the ENTIRE conversation so far, in chronological order (oldest at the top, newest at the bottom). Each line may start with a speaker label: me:, other:, unknown:, or a diarization id (e.g. SPEAKER_00) — use that to tell who said what. Ground next_question and suggested_reply in this full thread: names, numbers, constraints, tone shifts, and anything already promised or questioned.",
     "",

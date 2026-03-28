@@ -50,7 +50,7 @@ export function ListeningToolbar({
         </span>
       )}
       {tokenState === "error" && (
-        <span className="text-xs text-rose-400/90">Couldn’t start — see status</span>
+        <span className="text-xs text-amber-200/75">Couldn&apos;t connect</span>
       )}
     </div>
   );
