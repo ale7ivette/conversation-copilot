@@ -13,6 +13,8 @@ export function triggerInsightLabel(reason: TriggerReason): string | null {
       return "Pause detected — good moment to contribute";
     case "thought_finished":
       return "They finished a thought";
+    case "manual":
+      return "You asked for suggestions";
     case "none":
       return null;
   }

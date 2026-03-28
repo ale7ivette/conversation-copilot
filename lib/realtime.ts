@@ -32,6 +32,29 @@ export async function getRealtimeToken(options?: {
   return res.json() as Promise<ClientSecretCreateResponse>;
 }
 
+export async function getAssemblyAiStreamingToken(): Promise<string> {
+  const res = await fetch("/api/assemblyai-streaming-token");
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body.error) detail = body.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      res.status === 503
+        ? detail
+        : `AssemblyAI token failed (${res.status}): ${detail}`
+    );
+  }
+  const data = (await res.json()) as { token?: string };
+  if (!data.token?.trim()) {
+    throw new Error("AssemblyAI token response missing token.");
+  }
+  return data.token;
+}
+
 export async function requestCopilotSuggestion(args: {
   transcript: string;
   trigger: string;

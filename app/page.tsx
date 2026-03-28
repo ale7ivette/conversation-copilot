@@ -34,7 +34,17 @@ import { MicActivityTracker } from "@/lib/mic-activity-tracker";
 import { canRequestSuggestion } from "@/lib/suggestion-cooldown";
 import type { TranscriptLine } from "@/lib/transcript-buffer";
 import { TranscriptBuffer } from "@/lib/transcript-buffer";
-import { getRealtimeToken, requestCopilotSuggestion } from "@/lib/realtime";
+import {
+  getAssemblyAiStreamingToken,
+  getRealtimeToken,
+  requestCopilotSuggestion,
+} from "@/lib/realtime";
+import {
+  loadPersistedSuggestionTiming,
+  savePersistedSuggestionTiming,
+  type SuggestionTiming,
+} from "@/lib/suggestion-timing";
+import { getClientTranscriptionProvider } from "@/lib/transcription-provider";
 import type { CopilotSuggestion } from "@/types/copilot";
 
 const SHOW_DEV_TOOLS =
@@ -89,10 +99,18 @@ export default function HomePage() {
   );
   const [elapsedSec, setElapsedSec] = useState(0);
   const [autoShiftNote, setAutoShiftNote] = useState<string | null>(null);
+  const [suggestionTiming, setSuggestionTiming] =
+    useState<SuggestionTiming>("auto");
+  const suggestionTimingRef = useRef<SuggestionTiming>("auto");
 
   useEffect(() => {
     setScenario(loadPersistedScenario());
+    setSuggestionTiming(loadPersistedSuggestionTiming());
   }, []);
+
+  useEffect(() => {
+    suggestionTimingRef.current = suggestionTiming;
+  }, [suggestionTiming]);
 
   useEffect(() => {
     if (scenario !== "auto") prevAutoRef.current = null;
@@ -181,12 +199,14 @@ export default function HomePage() {
       reason: Exclude<TriggerReason, "none">,
       transcript: string
     ) => {
-      if (!canRequestSuggestion(reason, lastSuggestionAtRef.current)) {
-        return;
+      if (reason !== "manual") {
+        if (!canRequestSuggestion(reason, lastSuggestionAtRef.current)) {
+          return;
+        }
       }
       if (suggestionInFlightRef.current) return;
       const deduper = triggerDeduperRef.current;
-      if (!deduper.tryConsume(reason, transcript)) {
+      if (reason !== "manual" && !deduper.tryConsume(reason, transcript)) {
         return;
       }
       suggestionInFlightRef.current = true;
@@ -273,16 +293,23 @@ export default function HomePage() {
       const reason = detectLineTrigger(text);
       setLastLineTrigger(reason);
 
-      if (reason !== "none") {
-        const full = fullTranscript();
-        void fireCopilotSuggestion(reason, full);
-      }
+      if (suggestionTimingRef.current === "auto") {
+        if (reason !== "none") {
+          const full = fullTranscript();
+          void fireCopilotSuggestion(reason, full);
+        }
 
-      if (silenceTimer.current) clearTimeout(silenceTimer.current);
-      silenceTimer.current = setTimeout(() => {
-        const full = fullTranscript();
-        void fireCopilotSuggestion("pause", full);
-      }, DEFAULT_PAUSE_MS);
+        if (silenceTimer.current) clearTimeout(silenceTimer.current);
+        silenceTimer.current = setTimeout(() => {
+          const full = fullTranscript();
+          void fireCopilotSuggestion("pause", full);
+        }, DEFAULT_PAUSE_MS);
+      } else {
+        if (silenceTimer.current) {
+          clearTimeout(silenceTimer.current);
+          silenceTimer.current = null;
+        }
+      }
     },
     [fullTranscript, pushTranscriptCue, fireCopilotSuggestion]
   );
@@ -318,23 +345,45 @@ export default function HomePage() {
     setTokenState("loading");
     try {
       const audioSettings = readPersistedAudioCaptureSettings();
-      const token = await getRealtimeToken({
-        noiseReduction: audioSettings.noiseReduction,
-      });
-      const { startRealtimeMicSession } = await import(
-        "@/lib/realtime-mic-session"
-      );
-      const stop = await startRealtimeMicSession(
-        token,
-        {
-          onTranscriptCue: (cue) => {
-            void handleTranscriptCue(cue);
+      const micOpts = toRealtimeMicSessionOptions(audioSettings);
+      const provider = getClientTranscriptionProvider();
+
+      let stop: () => Promise<void>;
+      if (provider === "assemblyai") {
+        const streamingToken = await getAssemblyAiStreamingToken();
+        const { startAssemblyAiMicSession } = await import(
+          "@/lib/assemblyai-mic-session"
+        );
+        stop = await startAssemblyAiMicSession(
+          streamingToken,
+          {
+            onTranscriptCue: (cue) => {
+              void handleTranscriptCue(cue);
+            },
+            onPartialTranscript: (t) => setLiveTranscriptHint(t),
+            onDebug: (m) => console.debug("[assemblyai]", m),
           },
-          onPartialTranscript: (t) => setLiveTranscriptHint(t),
-          onDebug: (m) => console.debug("[realtime]", m),
-        },
-        toRealtimeMicSessionOptions(audioSettings)
-      );
+          micOpts
+        );
+      } else {
+        const token = await getRealtimeToken({
+          noiseReduction: audioSettings.noiseReduction,
+        });
+        const { startRealtimeMicSession } = await import(
+          "@/lib/realtime-mic-session"
+        );
+        stop = await startRealtimeMicSession(
+          token,
+          {
+            onTranscriptCue: (cue) => {
+              void handleTranscriptCue(cue);
+            },
+            onPartialTranscript: (t) => setLiveTranscriptHint(t),
+            onDebug: (m) => console.debug("[realtime]", m),
+          },
+          micOpts
+        );
+      }
       stopMicRef.current = stop;
       setTokenState("ready");
       setIsListening(true);
@@ -382,6 +431,16 @@ export default function HomePage() {
 
   const micLive =
     isListening && tokenState === "ready" && stopMicRef.current != null;
+
+  const suggestNow = useCallback(() => {
+    const full = fullTranscript();
+    void fireCopilotSuggestion("manual", full);
+  }, [fullTranscript, fireCopilotSuggestion]);
+
+  function onSuggestionTimingChange(next: SuggestionTiming) {
+    setSuggestionTiming(next);
+    savePersistedSuggestionTiming(next);
+  }
 
   return (
     <main className="flex min-h-dvh flex-col bg-[var(--copilot-bg)] text-[var(--copilot-fg)]">
@@ -459,6 +518,9 @@ export default function HomePage() {
                 suggestionInFlight={suggestionInFlight}
                 scenario={scenario}
                 autoShiftNote={autoShiftNote}
+                suggestionTiming={suggestionTiming}
+                showSuggestNow={isListening}
+                onSuggestNow={suggestNow}
                 className="min-h-0"
               />
               <button
@@ -513,6 +575,8 @@ export default function HomePage() {
         diarizationLabels={diarizationLabels}
         speakerMap={speakerMap}
         onSpeakerMapChange={handleSpeakerMapChange}
+        suggestionTiming={suggestionTiming}
+        onSuggestionTimingChange={onSuggestionTimingChange}
       />
 
       <TranscriptFullDrawer
@@ -520,6 +584,7 @@ export default function HomePage() {
         onClose={() => setTranscriptFullOpen(false)}
         lines={transcriptLines}
         liveLine={liveTranscriptHint}
+        sessionStartedAtMs={sessionStartedAt}
       />
 
       <EndSessionDialog

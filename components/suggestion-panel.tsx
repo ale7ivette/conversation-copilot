@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { CopilotScenario } from "@/lib/copilot-scenario";
+import type { SuggestionTiming } from "@/lib/suggestion-timing";
 import type { CopilotSuggestion } from "@/types/copilot";
 import type { TriggerReason } from "@/lib/trigger-engine";
 import { triggerInsightLabel } from "@/lib/trigger-insight-copy";
@@ -12,6 +13,10 @@ type SuggestionPanelProps = {
   suggestionInFlight: boolean;
   scenario: CopilotScenario;
   autoShiftNote?: string | null;
+  suggestionTiming?: SuggestionTiming;
+  /** When true and timing is manual, show the on-demand button. */
+  showSuggestNow?: boolean;
+  onSuggestNow?: () => void;
   className?: string;
 };
 
@@ -31,6 +36,7 @@ function primaryBlock(
   if (!r && q) return "ask";
   if (trigger === "direct_question") return "ask";
   if (trigger === "objection") return "say";
+  if (trigger === "manual") return "ask";
   return "ask";
 }
 
@@ -62,6 +68,9 @@ export function SuggestionPanel({
   suggestionInFlight,
   scenario,
   autoShiftNote = null,
+  suggestionTiming = "auto",
+  showSuggestNow = false,
+  onSuggestNow,
   className = "",
 }: SuggestionPanelProps) {
   const incomingKey = suggestionKey(suggestion);
@@ -110,8 +119,22 @@ export function SuggestionPanel({
       ? `${ad.detected_conversation_type} · ${ad.primary_voice}`
       : null;
 
+  const manualMode = suggestionTiming === "manual";
+  const showManualCta = manualMode && showSuggestNow && onSuggestNow;
+
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${className}`}>
+      {showManualCta ? (
+        <button
+          type="button"
+          onClick={onSuggestNow}
+          disabled={suggestionInFlight}
+          className="mb-3 w-full rounded-xl bg-[var(--copilot-accent)] px-4 py-3 text-sm font-semibold text-[#1a1508] shadow-sm transition-opacity disabled:opacity-50"
+        >
+          Suggest now
+        </button>
+      ) : null}
+
       {autoShiftNote ? (
         <p
           className="mb-2 rounded-lg border border-[var(--copilot-accent)]/30 bg-[var(--copilot-accent-muted)] px-3 py-2 text-center text-[11px] font-medium text-[var(--copilot-accent)]"
@@ -163,7 +186,9 @@ export function SuggestionPanel({
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
             <p className="max-w-sm text-[15px] leading-relaxed text-[var(--copilot-muted)]">
-              Listening… suggestions will appear as the conversation develops.
+              {manualMode
+                ? "Listening… tap Suggest now when you want questions or lines to say."
+                : "Listening… suggestions will appear as the conversation develops."}
             </p>
           </div>
         )}

@@ -11,6 +11,7 @@ export function canRequestSuggestion(
   nowMs: number = Date.now()
 ): boolean {
   if (reason === "none") return false;
+  if (reason === "manual") return true;
   if (lastSuggestionAtMs === null) return true;
   return nowMs - lastSuggestionAtMs >= SUGGESTION_MIN_INTERVAL_MS;
 }

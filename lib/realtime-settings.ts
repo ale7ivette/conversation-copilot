@@ -28,8 +28,18 @@ export const REALTIME_INPUT_TRANSCRIPTION_MODEL =
     ? envTranscriptionModel
     : "gpt-4o-mini-transcribe";
 
-/** Rolling transcript window (lines). Range 20–40. */
-export const TRANSCRIPT_BUFFER_MAX_LINES = 40;
+/**
+ * Max transcript lines kept per session (oldest dropped).
+ * Use `NEXT_PUBLIC_TRANSCRIPT_SESSION_MAX_LINES` so the client bundle picks it up.
+ */
+const rawSessionMax = parseInt(
+  process.env.NEXT_PUBLIC_TRANSCRIPT_SESSION_MAX_LINES?.trim() ?? "",
+  10
+);
+export const TRANSCRIPT_SESSION_MAX_LINES =
+  Number.isFinite(rawSessionMax) && rawSessionMax >= 40 && rawSessionMax <= 50_000
+    ? rawSessionMax
+    : 2000;
 
 /** Text-only assistant output; keep small to limit latency/cost. */
 export const REALTIME_MAX_OUTPUT_TOKENS = 120;

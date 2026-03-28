@@ -23,6 +23,7 @@ export const TRIGGER_REASONS = [
   "pause",
   "direct_question",
   "objection",
+  "manual",
   "none",
 ] as const;
 

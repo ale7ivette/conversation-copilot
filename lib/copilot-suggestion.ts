@@ -189,6 +189,13 @@ const AUTO_COPILOT_JSON_SCHEMA = {
   ],
 } as const;
 
+function expandTriggerForPrompt(trigger: string): string {
+  if (trigger === "manual") {
+    return "manual — user explicitly requested suggestions (Suggest now); give strong, relevant questions and lines without waiting for a pause or line trigger.";
+  }
+  return trigger;
+}
+
 export async function generateCopilotSuggestion(input: {
   transcript: string;
   trigger: string;
@@ -196,9 +203,14 @@ export async function generateCopilotSuggestion(input: {
   clientHints?: ClientHints;
 }): Promise<CopilotSuggestion> {
   const { transcript, trigger, scenario, clientHints } = input;
+  const triggerHint = expandTriggerForPrompt(trigger);
 
   if (scenario === "auto") {
-    const userContent = buildCopilotAutoPrompt(trigger, transcript, clientHints);
+    const userContent = buildCopilotAutoPrompt(
+      triggerHint,
+      transcript,
+      clientHints
+    );
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -242,7 +254,7 @@ export async function generateCopilotSuggestion(input: {
   }
 
   const userContent = buildCopilotNegotiationPrompt(
-    trigger,
+    triggerHint,
     transcript,
     scenario
   );

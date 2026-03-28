@@ -1,6 +1,11 @@
 ## Conversation Copilot
 
-Real-time mic transcription with AI suggestions for live conversations. Configure `OPENAI_API_KEY` in `.env.local` (see `.env.example`).
+Real-time mic transcription with AI suggestions for live conversations. Configure `OPENAI_API_KEY` in `.env.local` (see `.env.example`). Suggestions always use OpenAI; live transcription can use **OpenAI Realtime** (default) or **AssemblyAI** Universal Streaming with speaker labels.
+
+- **OpenAI path (default):** set `OPENAI_API_KEY` only.
+- **AssemblyAI path:** set `ASSEMBLYAI_API_KEY`, `TRANSCRIPTION_PROVIDER=assemblyai`, and `NEXT_PUBLIC_TRANSCRIPTION_PROVIDER=assemblyai` (client and server must agree).
+
+In **Settings**, choose **Automatic** suggestions (line cues + pause) or **On demand** (tap **Suggest now**). Open the full transcript drawer to **Download .txt** or **Copy** the session (up to `NEXT_PUBLIC_TRANSCRIPT_SESSION_MAX_LINES`, default 2000).
 
 Developer testing presets appear in development, or set `NEXT_PUBLIC_COPILOT_DEV_TOOLS=true` to enable them in production builds.
 

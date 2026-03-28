@@ -4,6 +4,11 @@ import { useEffect, useRef } from "react";
 import { AudioCaptureSettingsPanel } from "@/components/audio-capture-settings";
 import { DiarizationSpeakerControls } from "@/components/diarization-speaker-controls";
 import type { SpeakerMap } from "@/lib/transcript-buffer";
+import {
+  SUGGESTION_TIMING_LABELS,
+  SUGGESTION_TIMING_OPTIONS,
+  type SuggestionTiming,
+} from "@/lib/suggestion-timing";
 
 type SettingsDrawerProps = {
   open: boolean;
@@ -13,6 +18,8 @@ type SettingsDrawerProps = {
   diarizationLabels: string[];
   speakerMap: SpeakerMap;
   onSpeakerMapChange: (map: SpeakerMap) => void;
+  suggestionTiming: SuggestionTiming;
+  onSuggestionTimingChange: (t: SuggestionTiming) => void;
 };
 
 export function SettingsDrawer({
@@ -22,6 +29,8 @@ export function SettingsDrawer({
   diarizationLabels,
   speakerMap,
   onSpeakerMapChange,
+  suggestionTiming,
+  onSuggestionTimingChange,
 }: SettingsDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
@@ -116,6 +125,33 @@ export function SettingsDrawer({
             hint for who is you; it works best with a local mic, not mixed remote
             audio alone.
           </p>
+
+          <fieldset className="space-y-2 rounded-xl border border-[var(--copilot-border)] bg-[var(--copilot-surface-2)] p-3">
+            <legend className="px-1 text-[0.65rem] font-medium text-[var(--copilot-fg-secondary)]">
+              Suggestions
+            </legend>
+            <p className="text-[0.65rem] leading-relaxed text-[var(--copilot-muted)]">
+              Automatic fires after line cues or a short pause. On demand only
+              updates when you tap Suggest now.
+            </p>
+            <div className="flex flex-col gap-2">
+              {SUGGESTION_TIMING_OPTIONS.map((opt) => (
+                <label
+                  key={opt}
+                  className="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--copilot-fg-secondary)]"
+                >
+                  <input
+                    type="radio"
+                    name="suggestion-timing"
+                    checked={suggestionTiming === opt}
+                    onChange={() => onSuggestionTimingChange(opt)}
+                    className="accent-[var(--copilot-accent)]"
+                  />
+                  {SUGGESTION_TIMING_LABELS[opt]}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           {audioCaptureLocked ? (
             <p className="rounded-xl border border-[var(--copilot-border)] bg-[var(--copilot-surface-2)] px-3 py-2 text-[0.65rem] leading-relaxed text-amber-200/85">

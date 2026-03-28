@@ -7,11 +7,12 @@ This app is **Next.js 15** (`npm run build` / `npm run start`). Deploy like any 
 1. Push this repo to **GitHub**, **GitLab**, or **Bitbucket**.
 2. Sign in at [vercel.com](https://vercel.com) and **Add New Project** → import the repo. Framework: **Next.js** (auto-detected).
 3. Under **Settings → Environment Variables**, add for **Production** (and **Preview** if you want previews to work):
-   - **`OPENAI_API_KEY`** — your OpenAI API secret (never commit it; `.env.local` is only for your machine).
-   - Optional (see `.env.example`): `TRANSCRIPTION_LANGUAGE`, `REALTIME_TRANSCRIPTION_MODEL`, `REALTIME_INPUT_NOISE_REDUCTION`.
+   - **`OPENAI_API_KEY`** — required for copilot suggestions (and for OpenAI Realtime transcription if you use the default path).
+   - **Transcription (optional):** default is OpenAI Realtime. For **AssemblyAI** streaming + diarization, add **`ASSEMBLYAI_API_KEY`**, **`TRANSCRIPTION_PROVIDER=assemblyai`**, and **`NEXT_PUBLIC_TRANSCRIPTION_PROVIDER=assemblyai`** (keep those two provider values identical).
+   - Optional (see `.env.example`): `NEXT_PUBLIC_TRANSCRIPT_SESSION_MAX_LINES`, `TRANSCRIPTION_LANGUAGE`, `REALTIME_TRANSCRIPTION_MODEL`, `REALTIME_INPUT_NOISE_REDUCTION`, `NEXT_PUBLIC_ASSEMBLYAI_SPEECH_MODEL`.
 4. Deploy. You get a URL like `https://your-project.vercel.app`.
 
-**Architecture:** `/api/realtime-token` and `/api/copilot-suggest` run on the server with your key. The browser only receives short-lived Realtime client secrets from your API.
+**Architecture:** `/api/copilot-suggest` uses your OpenAI key on the server. For listening, either `/api/realtime-token` returns short-lived Realtime client secrets, or `/api/assemblyai-streaming-token` returns a short-lived AssemblyAI streaming token; the browser never sees your long-lived provider secrets.
 
 ## Other hosts
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { formatTranscriptForExport } from "@/lib/format-transcript-export";
 import type { TranscriptLine } from "@/lib/transcript-buffer";
 
 type TranscriptFullDrawerProps = {
@@ -8,6 +9,7 @@ type TranscriptFullDrawerProps = {
   onClose: () => void;
   lines: TranscriptLine[];
   liveLine: string;
+  sessionStartedAtMs?: number | null;
 };
 
 function linePrefix(line: TranscriptLine): string {
@@ -21,13 +23,19 @@ export function TranscriptFullDrawer({
   onClose,
   lines,
   liveLine,
+  sessionStartedAtMs = null,
 }: TranscriptFullDrawerProps) {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const [copyDone, setCopyDone] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const t = window.setTimeout(() => closeBtnRef.current?.focus(), 10);
     return () => window.clearTimeout(t);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setCopyDone(false);
   }, [open]);
 
   useEffect(() => {
@@ -46,6 +54,33 @@ export function TranscriptFullDrawer({
 
   const showLive = liveLine.trim().length > 0;
 
+  const exportText = formatTranscriptForExport(lines, {
+    sessionStartedAtMs,
+    liveLine: showLive ? liveLine : undefined,
+  });
+
+  function downloadTxt() {
+    const blob = new Blob([exportText], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `copilot-transcript-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyTranscript() {
+    try {
+      await navigator.clipboard.writeText(exportText);
+      setCopyDone(true);
+      window.setTimeout(() => setCopyDone(false), 2000);
+    } catch {
+      setCopyDone(false);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-6"
@@ -63,21 +98,39 @@ export function TranscriptFullDrawer({
         aria-labelledby="copilot-transcript-full-title"
         className="relative flex max-h-[min(85dvh,640px)] w-full max-w-lg flex-col rounded-t-2xl border border-[var(--copilot-border)] bg-[var(--copilot-surface-elevated)] shadow-2xl sm:rounded-2xl"
       >
-        <div className="flex items-center justify-between border-b border-[var(--copilot-border)] px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--copilot-border)] px-4 py-3">
           <h2
             id="copilot-transcript-full-title"
             className="text-sm font-medium text-[var(--copilot-fg)]"
           >
             Full transcript
           </h2>
-          <button
-            ref={closeBtnRef}
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-[var(--copilot-muted)] transition-colors hover:bg-[var(--copilot-surface-2)] hover:text-[var(--copilot-fg-secondary)]"
-          >
-            Close
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={downloadTxt}
+              disabled={lines.length === 0 && !showLive}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium text-[var(--copilot-accent)] transition-colors hover:bg-[var(--copilot-surface-2)] disabled:opacity-40"
+            >
+              Download .txt
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyTranscript()}
+              disabled={lines.length === 0 && !showLive}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium text-[var(--copilot-fg-secondary)] transition-colors hover:bg-[var(--copilot-surface-2)] disabled:opacity-40"
+            >
+              {copyDone ? "Copied" : "Copy"}
+            </button>
+            <button
+              ref={closeBtnRef}
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-2 py-1 text-sm text-[var(--copilot-muted)] transition-colors hover:bg-[var(--copilot-surface-2)] hover:text-[var(--copilot-fg-secondary)]"
+            >
+              Close
+            </button>
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
           {lines.length === 0 && !showLive ? (

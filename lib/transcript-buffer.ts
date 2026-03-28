@@ -1,4 +1,4 @@
-import { TRANSCRIPT_BUFFER_MAX_LINES } from "./realtime-settings";
+import { TRANSCRIPT_SESSION_MAX_LINES } from "./realtime-settings";
 import {
   promptLabelForLine,
   resolveSpeakerFromDiarization,
@@ -17,8 +17,8 @@ export type TranscriptLine = {
 
 export class TranscriptBuffer {
   private lines: TranscriptLine[] = [];
-  /** Keep last 20–40 lines; default matches {@link TRANSCRIPT_BUFFER_MAX_LINES}. */
-  private maxLines = TRANSCRIPT_BUFFER_MAX_LINES;
+  /** Capped by {@link TRANSCRIPT_SESSION_MAX_LINES}. */
+  private maxLines = TRANSCRIPT_SESSION_MAX_LINES;
 
   add(line: TranscriptLine) {
     this.lines.push(line);
